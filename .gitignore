@@ -1,0 +1,17 @@
+# Ignore the 'data' directory
+data/
+
+# R session files
+.Rhistory
+.RData
+.Ruserdata
+
+# RStudio project files
+.Rproj.user/
+
+# macOS
+.DS_Store
+
+# Quarto / R Markdown rendered output (optional)
+*_cache/
+*_files/
