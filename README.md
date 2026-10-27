@@ -1,7 +1,7 @@
-# EDS 223 - Lecture
+# EDS 223 - Discussion
 
 
-This repository hosts all the work completed by Karolina Sienko during the EDS 223 - *Geospatial Analysis & Remote Sensing* lectures. 
+This repository hosts all the work completed by Karolina Sienko during the EDS 223 - *Geospatial Analysis & Remote Sensing* discussion sections. 
 
 This is an introductory course on spatial modeling and analytic techniques of geographic information science. It emphasizes a deep understanding of spatial data models and the analytic operations they enable.
 
