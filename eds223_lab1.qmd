@@ -1,0 +1,77 @@
+---
+title: "Week 1: Discussion Section"
+subtitle: "Making maps with `tmap` and beyond"
+author: "Karolina Sienko"
+date: 2026-10-2
+execute:
+ eval: true
+ warning: false
+ message: false
+format:
+ html:
+  toc: true
+---
+
+## 1. Packages & Reading in the Data
+
+```{r}
+#| message: false
+#| warning: false
+#| results: hide
+
+library(here)
+library(tidyverse)
+library(sf)
+library(stars)
+library(tmap)
+
+ei_points <- st_read(here("data", "easter_island", "ei_points.gpkg")) |> 
+  filter(type == "volcano") # contains several points on the island
+ei_elev <- read_stars(here("data", "easter_island", "ei_elev.tif")) # raster with elevation data
+ei_borders <- st_read(here("data", "easter_island", "ei_border.gpkg")) # polygon with the island outline
+ei_roads <- st_read(here("data", "easter_island", "ei_roads.gpkg")) # lines contains a road network for the island
+```
+
+## 2. Create a single-object map with `tmap`
+
+```{r}
+
+# Add Easter Island outline 
+tm_shape(ei_borders) +
+    tm_borders() +
+    tm_title("Easter Island")
+```
+
+## 3. Create a multiple-object map with `tmap`
+
+```{r}
+# Creating a full map of Easter Island
+
+ei_map <- tm_shape(ei_elev) + # raster data of elevation
+    tm_graticules() + # adding lat + long gridlines
+    tm_raster(col.scale = tm_scale_continuous(values = c("pink", "purple")), # color scheme
+              col.legend = tm_legend("Elevation (m asl)")) + # legend for elevation
+tm_shape(ei_borders) + # island border
+    tm_borders() +
+tm_shape(ei_roads) + # island roads
+    tm_lines() +
+tm_shape(ei_points) + # locations of volcanoes
+    tm_symbols(col = "blue",
+    border.col = "lightblue",
+    shape = 24, # 24 = filled triangle
+               size = "elevation",
+               size.legend = tm_legend("Volcanoes (m asl)")) + # adding a legend
+tm_scalebar(position = c("bottom", "right")) + # positioning scalebar
+tm_compass(position = c("top", "left")) + # positioning compass
+tm_title("Easter Island") # adding a title
+
+ei_map
+```
+
+
+## 4. Create an interactive map with `tmap`
+```{r}
+tmap_mode("view") # switching from defail "plot" mode to interactive "view" mode
+
+ei_map
+```

@@ -1,0 +1,202 @@
+# Week 4: Discussion Section (`terra` and `stars`)
+## Practice raster manipulations
+
+Load all necessary packages
+```{r}
+library(tidyverse)
+library(spDataLarge)
+library(sf)
+library(stars)
+library(terra)
+library(tmap) # map making
+```
+
+
+### Part 1: `terra`
+
+#### 1. Load the data
+```{r}
+dem <- terra::rast(system.file("raster/dem.tif", package = "spDataLarge"))
+landsat <- terra::rast(system.file("raster/landsat.tif", package = "spDataLarge"))
+srtm <- terra::rast(system.file("raster/srtm.tif", package = "spDataLarge"))
+```
+
+#### 2. Explore elevation at Mt. Mongón, Perú
+
+```{r}
+# Use terra:: so R doesn't fall back to base hist()/boxplot(), which can't read a SpatRaster
+terra::hist(dem,
+            main = "Digital Elevation Model Distribution",
+            xlab = "Value")
+```
+
+```{r}
+terra::boxplot(dem,
+               main = "Digital Elevation Model Distribution",
+               ylab = "Value")
+```
+
+```{r}
+# Define a reclassification matrix
+rcl <- matrix(c(-Inf, 300, 0, # values -Inf to 300 = 0
+                300, 500, 1,  # values 300 to 500 = 1
+                500, Inf, 2), # values 500 to Inf = 2
+              ncol = 3, byrow = TRUE)
+
+# Apply the matrix to reclassify the raster, making all cells 0 or 1 or 2
+dem_rcl <- terra::classify(dem, rcl = rcl)
+
+# Assign labels to the numerical categories
+
+# Old version: works with newer terra, but older versions (e.g., 1.7) error with
+# "[set.cats] the first column of 'value' must be numeric" because they don't accept a tibble
+# levels(dem_rcl) <- tibble::tibble(id = 0:2,
+#                                   cats = c("low", "medium", "high"))
+
+# New version: a plain data.frame works with both older and newer terra
+levels(dem_rcl) <- data.frame(id = 0:2,
+                              cats = c("low", "medium", "high"))
+
+# Calculate mean elevation for each category using original DEM values
+elevation_mean <- terra::zonal(dem, dem_rcl, fun = "mean")
+elevation_mean
+```
+
+```{r}
+tm_shape(dem_rcl) +
+    tm_raster()
+```
+
+#### 3. Explore NDVI and NDWI at Zion National Park
+
+```{r}
+scale_factor <- 0.0000275
+offset <- 0.2
+
+scale_function <- function(x) {
+  x * scale_factor + offset
+}
+
+landsat_scaled <- terra::app(landsat, fun = scale_function)
+```
+
+```{r}
+ndwi_fun <- function(green, nir){
+    (green - nir)/(green + nir)
+}
+
+ndvi_fun <- function(nir, red){
+  (nir - red)/(nir + red)
+}
+```
+
+```{r}
+ndwi_rast <- terra::lapp(landsat_scaled[[c(2, 4)]],
+                         fun = ndwi_fun)
+
+ndvi_rast <- terra::lapp(landsat_scaled[[c(4, 3)]],
+                         fun = ndvi_fun)
+
+plot(ndwi_rast,
+     main = "Zion National Park NDWI")                      
+```
+
+```{r}
+library(terra)
+```
+
+```{r}
+combine <- c(ndvi_rast, ndwi_rast) # Stack rasters
+
+plot(combine, main = c("NDVI", "NDWI")) # Plot
+```
+
+```{r}
+# Calculate correlation between raster layers
+terra::layerCor(combine, fun = cor)
+```
+
+#### 4. Change resolution of elevation at Zion National Park
+
+
+
+### Part 2: `sf` & `stars`
+
+#### 1. Load the data
+```{r}
+dem <- terra::rast(system.file("raster/dem.tif", package = "spDataLarge"))
+landsat <- terra::rast(system.file("raster/landsat.tif", package = "spDataLarge"))
+srtm <- terra::rast(system.file("raster/srtm.tif", package = "spDataLarge"))
+```
+
+#### 2. Explore elevation at Mt. Mongón, Perú
+
+```{r}
+# Extract the array of values from the first (and only) attribute
+dem_values <- as.vector(dem[[1]])
+
+hist(dem_values,
+     main = "Digital Elevation Model Distribution",
+     xlab = "Value")
+```
+
+```{r}
+boxplot(dem_values,
+        main = "Digital Elevation Model Distribution",
+        ylab = "Value")
+```
+
+```{r}
+# Reclassify by cutting values into intervals, returning a factor raster
+dem_rcl <- cut(dem,
+               breaks = c(-Inf, 300, 500, Inf), # -Inf to 300, 300 to 500, 500 to Inf
+               labels = c("low", "medium", "high"))
+
+plot(dem_rcl, main = "Reclassified elevation")
+```
+
+```{r}
+# Calculate mean elevation for each category using original DEM values
+elevation_mean <- tibble(elevation = as.vector(dem[[1]]),
+                         cats = factor(as.vector(dem_rcl[[1]]), 
+                                       levels = levels(dem_rcl[[1]]))) |> 
+  group_by(cats) |> 
+  summarise(mean_elevation = mean(elevation, na.rm = TRUE))
+elevation_mean
+```
+
+#### 3. Explore NDVI and NDWI at Zion National Park
+
+```{r}
+scale_factor <- 0.0000275
+offset <- 0.2
+
+# Arithmetic on a stars object is applied to every grid cell
+landsat_scaled <- landsat * scale_factor + offset
+```
+
+```{r}
+ndwi_fun <- function(green, nir){
+    (green - nir)/(green + nir)
+}
+
+ndvi_fun <- function(nir, red){
+  (nir - red)/(nir + red)
+}
+```
+
+```{r}
+# Split the "band" dimension into attributes (X1 = blue, X2 = green, X3 = red, X4 = NIR)
+landsat_bands <- split(landsat_scaled, "band")
+landsat_bands
+```
+
+```{r}
+ndwi_rast <- landsat_bands %>%
+  transmute(ndwi = ndwi_fun(green = X2, nir = X4))
+
+ndvi_rast <- landsat_bands %>%
+  transmute(ndvi = ndvi_fun(nir = X4, red = X3))
+```
+
+#### 4. Change resolution of elevation at Zion National Park

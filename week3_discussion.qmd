@@ -1,0 +1,103 @@
+# Week 3: Discussion Section
+## Practice vector operations
+
+
+### 1. Loading packages & data
+
+```{r}
+library(here)
+library(tidyverse)
+library(sf)
+library(tmap)
+```
+
+```{r}
+sb_protected_areas <- st_read(here("data", "data week 3", "cpad_super_units_sb.shp")) |>  
+  st_transform("ESRI:102009")
+
+sb_city_boundaries <- st_read(here("data", "data week 3", "sb_city_boundaries_2003.shp")) |> 
+  st_transform("ESRI:102009")
+
+sb_county_boundary <- st_read(here("data", "data week 3", "sb_county_boundary_2020.shp")) |> 
+  st_transform("ESRI:102009")
+
+aves <- st_read(here("data", "data week 3", "aves_observations_2020_2024.shp")) |> 
+  st_transform("ESRI:102009")
+```
+
+### 2. Find bird observations within PAs in Santa Barbara County
+
+Find how many bird observations are within protected areas in Santa Barbara County and show how your output differs with a spatial subset versus a spatial join.
+
+```{r}
+# Spatial subset
+# A filter - keep only the rows of sb_protected_areas that intersect at least one row of aves. The result is still protected-area
+aves_PA_subset <- sb_protected_areas[aves,] # subset
+nrow(aves_PA_subset) # 35
+
+# Making a map
+tm_shape(sb_county_boundary) +
+  tm_fill() +
+  tm_borders() +
+tm_shape(sb_protected_areas) +
+  tm_polygons() +
+tm_shape(aves_PA_subset) +
+  tm_dots()
+```
+
+```{r}
+# Spatial join
+# A join - keep every row of aves, and attach the attributes of whichever protected area it falls inside. The result is still bird points
+aves_PA_join <- st_join(aves, sb_protected_areas)
+nrow(aves_PA_join) # 500
+
+# Making a map
+tm_shape(sb_county_boundary) +
+  tm_fill() +
+  tm_borders() +
+tm_shape(sb_protected_areas) +
+  tm_polygons() +
+tm_shape(aves_PA_join) +
+  tm_dots()
+```
+
+Make a 5 km buffer around the protected areas and subset buffered geometries to only those with bird observations
+
+```{r}
+# Checking units
+st_crs(sb_protected_areas)$units # in meters
+
+# Creating 5km buffer and subsetting geometries to those with bird observations
+sb_protected_buffer_5km <- st_buffer(sb_protected_areas, dist = units::set_units(5, 'km'))
+protected_buffer_5km <- sb_protected_buffer_5km[aves,]
+
+tm_shape(sb_county_boundary) +
+  tm_fill() +
+  tm_shape(sb_protected_areas) +
+    tm_borders(lwd = 1) +
+    tm_fill(col = 'orange', alpha = 0.2) +
+  tm_shape(protected_buffer_5km) +
+  tm_dots()
+
+```
+
+
+### 3. Find PAs within 15km of Goleta
+```{r}
+# Subsetting sb_city_boundaries to goleta
+
+goleta <- sb_city_boundaries |> 
+  dplyr::filter(NAME == 'Goleta')
+
+sb_protected_buffer_15km <- st_buffer(sb_protected_areas, dist = units::set_units(15, 'km'))
+protected_buffer_15km <- sb_protected_buffer_15km[aves,]
+
+```
+
+
+```{r}
+dangermond <- sb_protected_areas |> 
+  filter(UNIT_NAME == 'Jack and Laura Dangermond Preserve')
+
+danger_dist <- st_distance(goleta, dangermond)
+```

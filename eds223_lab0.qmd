@@ -1,0 +1,99 @@
+# EDS 223 - Lab 0: Data Wrangling Refresher
+
+## Packages
+
+```{r}
+packages <- c("here", "janitor", "tidyverse", "sf", "terra", "tmap", "spData", "geodata", "kableExtra", "viridisLite")
+installed_packages <- packages %in% rownames(installed.packages())
+
+install.packages("spDataLarge", repos = c("https://geocompx.r-universe.dev", "https://cloud.r-project.org"))
+
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+library(here)
+library(janitor)
+library(tidyverse)
+library(sf)
+library(kableExtra)
+
+```
+
+
+## Loading Data
+```{r}
+gdw_df <- read_csv(here("data", "gdw.csv")) |>
+  clean_names() # Convert variable names to lower snake case
+
+```
+
+## Data Exploration
+```{r}
+# Showing the first and last 10 rows
+head(gdw_df, n = 10) |> 
+  kable() # making nice HTML table
+
+tail(gdw_df, n = 10) |> 
+  kable() #making nice HTML table
+
+# Printing number of rows and cols
+dim(gdw_df)
+nrow(gdw_df)
+ncol(gdw_df)
+
+# Printing col names
+names(gdw_df)
+```
+
+## Index, Summarize, Subset Data
+```{r}
+# Extracting country col as df and vector
+country_df <- gdw_df[, "country"]
+country_vec <- gdw_df[["country"]]
+
+
+gdw_df |> 
+  group_by(dam_type) |>
+  summarise(count = n()) |>
+  ungroup()
+
+sub_dam <- gdw_df |>
+  filter(dam_type == "Dam")
+
+gdw_df <- gdw_df |>
+  arrange(year_dam)
+```
+
+
+```{r}
+#| echo: true
+#| results: "markup"
+
+sub_dam <- gdw_df |>
+  filter(dam_type == "Dam")
+sub_dam
+```
+
+## Data Visualization
+```{r}
+gdw_df |>
+  group_by(country) |>
+  summarize(mean_dam_hgt_m = mean(dam_hgt_m, na.rm = TRUE)) |>
+  ungroup() |> 
+  ggplot(aes(x = country, y = mean_dam_hgt_m)) +
+    geom_bar(stat = "identity") +
+    labs(x = "Country",
+         y = "Average height of dam/barrier in meters") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+```
+
+```{r}
+ggplot(data = gdw_df,
+      aes(x = cap_mcm, y = dam_hgt_m)) +
+  geom_point() +
+  labs(x = "Storage capacity of reservoir in million cubic meters",
+       y = "Height of dam/barrier in meters") +
+  theme_minimal()
+```
